@@ -1,0 +1,408 @@
+---
+title: "Resampling and Regularization Homework"
+author: "Pruthvi Bharadwaj"
+date: "February 14, 2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(boot)
+library(base)
+library(leaps)
+library(MASS)
+library(ISLR)
+library(glmnet)
+library(pls)
+```
+
+5.8. We will now perform cross-validation on a simulated data set.
+(a) Generate a simulated data set as follows:
+
+```{r}
+set.seed (1)
+x <- rnorm (100)
+y <- x-2* x^2+ rnorm (100)
+```
+
+In this data set, what is n and what is p? Write out the model used to generate the data in equation form.
+(b) Create a scatterplot of X against Y . Comment on what you find.
+
+_*The model used to generate the data is*_ $y = (x - 2)x^2 + \epsilon$
+_*In this data set, n = 100 and p = 2.*_
+
+```{r}
+plot(x,y)
+```
+_*From the scatterplot, we see a clear non-linear relationship between x and y. The plot looks more like an inverted parabola implying a quadratic relationship between x and y. And, the range of x seems to be approximately from -2 to 2.*_
+
+(c) Set a random seed, and then compute the LOOCV errors that result from fitting the following four models using least squares:
+i. Y = $\beta_0 + \beta_1X + \epsilon$
+ii. Y = $\beta_0 + \beta_1X + \beta_2X^2 + \epsilon$
+iii. Y = $\beta_0 + \beta_1X + \beta_2X^2 + \beta_3X^3 + \epsilon$
+iv. Y = $\beta_0 + \beta_1X + \beta_2X^2 + \beta_3X^3 + \beta_4X^4 + \epsilon$.
+Note you may find it helpful to use the data.frame() function to create a single data set containing both X and Y .
+
+```{r}
+# i)
+set.seed(1)
+df <- data.frame(x,y)
+fit1 <- glm(y ~ x, data = df)
+print(paste0("LOOCV error for i): ", cv.glm(df, fit1)$delta[1]))
+# ii)
+fit2 <- glm(y ~ poly(x,2), data = df)
+print(paste0("LOOCV error for ii): ", cv.glm(df, fit2)$delta[1]))
+# iii)
+fit3 <- glm(y ~ poly(x,3), data = df)
+print(paste0("LOOCV error for iii): ", cv.glm(df, fit3)$delta[1]))
+# iv)
+fit4 <- glm(y ~ poly(x,4), data = df)
+print(paste0("LOOCV error for iv): ", cv.glm(df, fit4)$delta[1]))
+```
+
+(d) Repeat (c) using another random seed, and report your results. Are your results the same as what you got in (c)? Why?
+
+```{r}
+set.seed(99)
+df <- data.frame(x,y)
+# i)
+fit1 <- glm(y ~ x, data = df)
+print(paste0("LOOCV error for i): ", cv.glm(df, fit1)$delta[1]))
+# ii)
+fit2 <- glm(y ~ poly(x,2), data = df)
+print(paste0("LOOCV error for ii): ", cv.glm(df, fit2)$delta[1]))
+# iii)
+fit3 <- glm(y ~ poly(x,3), data = df)
+print(paste0("LOOCV error for iii): ", cv.glm(df, fit3)$delta[1]))
+# iv)
+fit4 <- glm(y ~ poly(x,4), data = df)
+print(paste0("LOOCV error for iv): ", cv.glm(df, fit4)$delta[1]))
+```
+_*The results in (c) and (d) are the same because LOOCV trains the model on all the observations except one. Therefore, each time, the model is trained with the same set of observations for each cross validation set.*_
+
+(e) Which of the models in (c) had the smallest LOOCV error? Is this what you expected? Explain your answer.
+
+_*Model ii) has the least LOOCV error. This is expected as we saw in (b) that x and y share a quadratic relationship.*_
+
+
+(f) Comment on the statistical significance of the coefficient estimates that results from fitting each of the models in (c) using least squares. Do these results agree with the conclusions drawn based on the cross-validation results?
+
+```{r}
+for (i in 1:4) {
+  print(summary(glm(y ~ poly(x,i), data = df)))
+}
+```
+_*The results from the least squares model for the four models above are consistent with the LOOCV results. In model i) and ii), all the coefficients are statistically significant. But, in models iii) and iv), the coefficients of*_ $X^3 and X^4$ _*are not statistically significant, implying that y is second degree polynomial dependent on x.*_
+
+$~$
+
+6.2. For parts (a) through (c), indicate which of i. through iv. is correct. Justify your answer.
+(a) The lasso, relative to least squares, is: 
+i. More flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance.
+ii. More flexible and hence will give improved prediction accuracy when its increase in variance is less than its decrease in bias.
+iii. Less flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance.
+iv. Less flexible and hence will give improved prediction accuracy when its increase in variance is less than its decrease in bias.
+
+__**The lasso is: iii) less flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance. This is because the lasso restricts the number of predictors by shrinking some of them to be exactly zero. This reduced flexibility results in increase in bias but a decrease in variance. Therefore, when the increase in bias is less than the decrease in variance, lasso will have better prediction accuarcy relative to least squares.**__
+
+(b) Repeat (a) for ridge regression relative to least squares.
+
+__**Similar to the lasso, ridge regression also is: iii) less flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance.**__
+
+(c) Repeat (a) for non-linear methods relative to least squares.
+
+__**Since non-linear methods are more flexible relative to least squares, ii) is the correct answer here. They are more flexible and hence will give better prediction accuracy when the increase in variance is less than the decrease in bias.**__
+
+6.9 In this exercise, we will predict the number of applications received using the other variables in the College data set.
+
+(a)Split the data set into a training set and a test set.
+
+```{r}
+
+data(College)
+set.seed(1)
+data1 <- sample(1:dim(College)[1], dim(College)[1] / 2)
+data2 <- -data1
+train <- College[data1, ]
+test <- College[data2, ]
+```
+
+
+(b)Fit a linear model using least squares on the training set, and report the test error obtained.
+```{r}
+fit1 <- lm(Apps ~ ., data = train)
+pred.lm <- predict(fit1, test)
+mean((pred.lm - test$Apps)^2)
+```
+
+
+Using least squares on the training set, the test error obtained is 1135758.
+
+(c)Fit a ridge regression model on the training set, with $\lambda$ chosen by cross-validation. Report the test error obtained.
+```{r}
+
+train.mat <- model.matrix(Apps ~., data = train[ ,-1])
+test.mat <- model.matrix(Apps ~., data = test[ ,-1])
+set.seed(1)
+cv.out <- cv.glmnet(train.mat, train$Apps, alpha = 0)
+bestlam <- cv.out$lambda.min
+bestlam
+```
+
+```{r}
+pred.ridge <- predict(cv.out, s = bestlam, newx = test.mat)
+mean((pred.ridge - test$Apps) ^2)
+```
+
+
+(d)Fit a lasso model on the training set, with $\lambda$ chosen by cross-validation. Report the test error obtained, along with the number of non-zero coefficient estimates.
+```{r}
+set.seed(1)
+cv.out <- cv.glmnet(train.mat, train$Apps, alpha = 1)
+bestlam.lasso <- cv.out$lambda.min
+bestlam.lasso
+pred.lasso <- predict(cv.out, s = bestlam.lasso, newx = test.mat)
+mean((pred.lasso - test$Apps) ^2)
+```
+
+
+```{r}
+lasso.coef<- predict(cv.out, s = bestlam.lasso, type = "coefficients")[1:18, ]
+
+length(lasso.coef[lasso.coef != 0])
+```
+
+
+(e)Fit a PCR model on the training set, with M chosen by cross-validation. Report the test error obtained, along with the value of M selected by cross-validation.
+```{r}
+
+pcr.fit <- pcr(Apps ~ ., data = train, scale = TRUE, validation = "CV")
+summary(pcr.fit)
+validationplot(pcr.fit, val.type = "MSEP")
+```
+
+The CV score is provided for each possible number of components, ranging from M=0 onwards. One can also plot the cross-validation scores using the "validationplot" function. We see that the smallest cross-validation error occurs when  about M =17 components are used.
+
+```{r}
+pred.pcr <- predict(pcr.fit, test.mat, ncomp = 5)
+mean((pred.pcr - test$Apps)^2)
+```
+
+test set MSE is 1963819.
+
+(f)Fit a PLS model on the training set, with M chosen by cross-validation. Report the test error obtained, along with the value of M selected by cross-validation.
+```{r}
+set.seed(1)
+pls.fit <- plsr(Apps ~ ., data = train, scale = TRUE, validation = "CV")
+summary(pls.fit)
+validationplot(pls.fit, val.type = "MSEP")
+pred.pls <- predict(pls.fit, test.mat, ncomp = 10)
+mean((pred.pls - test$Apps) ^2)
+```
+ The test MSE here in partial least squares is 1181808.
+
+(g)Comment on the results obtained. How accurately can we predict the number of college applications received? Is there much difference among the test errors resulting from these five approaches?
+
+In order to compare the results obtained above, we need to compute the test $R^2$ for all models.
+```{r}
+test.avg <- mean(test$Apps)
+lm <- 1- mean((pred.lm - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+ridge <- 1- mean((pred.ridge - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+lasso <- 1- mean((pred.lasso - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+pcr <- 1- mean((pred.pcr - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+pls <- 1- mean((pred.pls - test$Apps)^2) / mean((test.avg - test$Apps)^2)
+lm
+ridge
+lasso
+pcr
+pls
+```
+
+So the test $R^2$ for the least squares is 0.9015413, the test $R^2$ for ridge regression is 0.9015558, the test $R^2$ for lasso regression is 0.9011326, the test $R^2$ for PCR is 0.8297569, and the test $R^2$ for PLS is 0.8975493. Except PCR, all models predict college applications with high accuracy.
+
+
+$~$
+
+6.10. We have seen that as the number of features used in a model increases, the training error will necessarily decrease, but the test error may not. We will now explore this in a simulated data set.
+(a) Generate a data set with p = 20 features, n = 1,000 observations, and an associated quantitative response vector generated according to the model Y = $X\beta + \epsilon$, where $\beta$ has some elements that are exactly equal to zero.
+
+```{r}
+set.seed(9)
+x <- matrix(rnorm(1000*20), 1000, 20)
+b <- matrix(rnorm(20), 20, 1)
+b[2] <- 0
+b[5] <- 0
+b[9] <- 0
+b[14] <- 0
+b[18] <- 0
+err <- rnorm(1000)
+y <- x%*%b + err 
+```
+
+(b) Split your data set into a training set containing 100 observations and a test set containing 900 observations.
+
+```{r}
+Data <- data.frame(x,y)
+train <- Data[1:100,]
+test <- Data[101:1000,]
+```
+
+(c) Perform best subset selection on the training set, and plot the training set MSE associated with the best model of each size.
+
+```{r}
+n <- 100
+subset1 <- regsubsets(y ~., train, nvmax = 20)
+plot((1/n)*summary(subset1)$rss, xlab = "Number of Variables", ylab = "Training MSE", type = "b", pch = 19)
+axis(1, at = seq(1, 20, 1))
+```
+
+(d) Plot the test set MSE associated with the best model of each size.
+
+```{r}
+test.mat <- model.matrix(y ~., test, nvmax = 20)
+errs <- rep(NA, 20)
+for (i in 1:20) {
+  coeff <- coef(subset1, id = i)
+  pred <- test.mat[, names(coeff)] %*%coeff
+  errs[i] <- mean((pred - test[,21])^2) 
+}
+plot(errs, xlab = "Number of Variables", ylab = "Test MSE", type = "b", pch = 19)
+axis(1, at = seq(1, 20, 1))
+```
+
+(e) For which model size does the test set MSE take on its minimum value? Comment on your results. If it takes on its minimum value for a model containing only an intercept or a model containing all of the features, then play around with the way that you are generating the data in (a) until you come up with a scenario in which the test set MSE is minimized for an intermediate model size.
+
+```{r}
+which.min(errs)
+```
+_*The model with 17 variables has the smallest MSE.*_
+
+
+(f) How does the model at which the test set MSE is minimized compare to the true model used to generate the data? Comment on the coefficient values.
+
+```{r}
+coef(subset1, which.min(errs))
+```
+_*The best model caught only three out of the five zero coefficients.*_
+
+
+(g) Create a plot displaying $\sqrt\Sigma_{j = 1}^p(\beta_j - \hat\beta_j^r)^2$ for a range of values of r, where $\hat\beta_j^r$ is the jth coefficient estimate for the best model containing r coefficients. Comment on what you observe. How does this compare to the test MSE plot from (d)?
+
+```{r}
+errors <- rep(NA, 20)
+x_colname <- colnames(x, do.NULL = FALSE, prefix = "X")
+for (i in 1:20) {
+  coeff <- coef(subset1, id = i)
+  errors[i] <- sqrt(sum((b[x_colname %in% names(coeff)] - coeff[names(coeff) %in% x_colname])^2) + sum(b[!(x_colname %in% names(coeff))])^2) 
+}
+plot(errors, xlab = "Number of variables", ylab = "MSE for estimated and true coefficients", type = "b", pch = 19)
+axis(1, at = seq(1, 20, 1))
+```
+
+_*From the above plot, it is seen that the model with 6 variables has the least error. This implies that the model that gives coefficient estimates close to the true parameter values need not necessarily be the model that has the least MSE, i.e., it is not necessarily the best model.*_
+
+
+$~$
+
+6.11.
+We will now try to predict per capita crime rate in the Boston data set.
+(a) Try out some of the regression methods explored in this chapter, such as best subset selection, the lasso, ridge regression, and PCR. Present and discuss results for the approaches that you consider.
+
+Best subset selection
+
+```{r}
+data(Boston)
+set.seed(1)
+
+predict.regsubsets <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id = id)
+  mat[, names(coefi)] %*% coefi
+}
+
+k = 10
+p <- ncol(Boston) - 1
+folds <- sample(rep(1:k, length = nrow(Boston)))
+cv.errors <- matrix(NA, k, p)
+
+for(i in 1:k){
+  best.fit <- regsubsets(crim ~ ., data = Boston[folds != i, ], nvmax = p)
+  for(j in 1:p) {
+    pred <- predict(best.fit, Boston[folds == i, ], id = j)
+    cv.errors[i,j] <- mean((Boston$crim[folds == i] - pred)^2)
+  }
+}
+rmse.cv <- sqrt(apply(cv.errors, 2, mean))
+plot(rmse.cv, pch = 16, type = "b")
+```
+
+Here I try to choose among the models of different sizes using cross-validation. First, we create a vector that allocates each observation to one of k=10 folds, and I create a matrix in which I will store the results. Then I write a for loop that performs cross-validation. In the $i$th fold, the elements of folds that equal $i$ are un the test set, and the remainder are in the training set. I make the predictions for each model size, compute the test errors on the appropriate subset, and store them in the appropriate slot in the matrix "cv.errors". The code will automatically use the "predict.regsubsets()" function when I call "predict()" because the "best.fit" object has class "regsubsets". After fitting 13 models, which equals to the number of variables minus 1, I will need to find the one model that minimizes the CV error on the test data.
+
+```{r}
+summary(best.fit)
+```
+
+```{r}
+which.min(rmse.cv)
+```
+
+```{r}
+boston.bsm.err <- (rmse.cv[which.min(rmse.cv)]) ^2
+boston.bsm.err
+```
+
+I see that cross-validation selects a 9-variable model based on the test MSE. At 9-variables, the CV estimate for the test MSE is 43.32807. The variables that are included in this model are zn,indus,nox,dis,rad,ptratio,black,lstat, and medv.
+
+# The lasso
+```{r}
+x <- model.matrix(crim ~ ., Boston)[, -1]
+y <- Boston$crim
+boston.lasso <- cv.glmnet(x, y, alpha = 1, type.measure = "mse")
+plot(boston.lasso)
+```
+The graph above depicts the relationship between log $\lambda$ and MSE. To help predict the training model on the test model, I will need to find the $\lambda$ that reduces the error the most.
+```{r}
+coef(boston.lasso)
+```
+
+```{r}
+boston.lasso.err <- (boston.lasso$cvm[boston.lasso$lambda == boston.lasso$lambda.1se])
+boston.lasso.err
+```
+
+As we know that Lasso is a variable reduction method. From the results shown above, the Lasso model that reduces the MSE the model includes only one variable and has an MSE of 55.02399. The only variable included in this model is "rad".
+
+# Ridge regression
+```{r}
+boston.ridge <- cv.glmnet(x, y, alpha = 0, type.measure = "mse")
+plot(boston.ridge)
+```
+Ridge regression keeps all the variables but push their coefficient value close to zero if they do not have significance in the relationship with the response.
+```{r}
+coef(boston.ridge)
+```
+
+```{r}
+boston.ridge.err <- boston.ridge$cvm[boston.ridge$lambda == boston.ridge$lambda.1se]
+boston.ridge.err
+```
+The MSE for the ridge regression method is 61.37358 -- much larger than those in other two methods. Ridge regression doesn't perform well.
+# PCR
+```{r}
+
+boston.pcr <- pcr(crim ~ ., data = Boston, scale = TRUE, validation = "CV")
+summary(boston.pcr)
+
+```
+Based on the CV error as well as the variances explained, the appropriate PCR model would only include 8 components. With 8 components, 93.45% of the variance is explained in the predictors by the model, and 42.47% of the variance is explained in the response variable by the model. Additionally, at 8 components, the MSE is at 6.614
+
+###(b)
+Propose a model (or set of models) that seem to perform well on this data set, and justify your answer. Make sure that you are evaluating model performance using validation set error, cross-validation, or some other reasonable alternative, as opposed to using training error.
+
+The model that has the lowest cross-validation error is the one chosen by the best subset selection method, which has a MSE of 43.32807.
+
+###(c)
+Does your chosen model involve all of the features in the data set? Why or why not?
+
+The model that was chosen by Best Subset Selection only includes 9 variables. The variables that are included in this model are zn, indus, nox, dis, rad, ptratio, black, lstat and medv. If the model were to include of the thrown-out features, more variation of the response would be present. For this particular problem, we are looking to have model prediction accuracy with low variance and low MSE.

@@ -1,0 +1,275 @@
+---
+title: "GAM Homework"
+author: "Pruthvi Bharadwaj"
+date: "Mar 4, 2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(boot)
+library(splines)
+library(leaps)
+library(ISLR)
+library(mgcv)
+library(MASS)
+library(gam)
+```
+
+3. 
+
+```{r}
+X <- -2:2
+Y <- 1 + 1*X - 2*((X - 1)^2)*I(X >= 1)
+plot(X, Y, type = "l")
+```
+
+9.(a) 
+
+```{r, fig.width=3, fig.height=3}
+
+set.seed(1)
+fit7.9a <- lm(nox ~ poly(dis, 3), data = Boston)
+summary(fit7.9a)
+```
+
+```{r}
+lims_dis <- range(Boston$dis)
+grid_dis <- seq(lims_dis[1], lims_dis[2])
+pred1 <- predict(fit7.9a, list(dis = grid_dis), se = TRUE)
+se_lines <- cbind(pred1$fit + 2*pred1$se.fit, pred1$fit - 2*pred1$se.fit)
+plot(Boston$dis, Boston$nox, xlab = "Weighted Mean of Distances", ylab = "Nitrogen Oxide Concentration", col = "dodgerblue4")
+lines(grid_dis, pred1$fit, col = "orange", lwd = 2)
+matlines(grid_dis, se_lines, lwd = 2, col = "red", lty = 3)
+```
+
+
+(b)
+
+```{r}
+set.seed(1)
+rss <- rep(NA, 10)
+for (i in 1:10){
+  fit <- lm(nox ~ poly(dis, i), data = Boston)
+  rss[i] <- sum(fit$residuals^2)
+}
+
+plot(1:10, rss, xlab = "Polynomial Degree", ylab = "RSS", type = "l", lwd = 2)
+points(which.min(rss), rss[which.min(rss)], col='red',pch=20,cex=2)
+```
+
+The minimum RSS is for a polynomial degree of 10.
+
+(c)
+
+```{r}
+err <- rep(NA, 10)
+for (i in 1:10) {
+  fit <- glm(nox ~ poly(dis, i), data = Boston)
+  err[i] <- cv.glm(Boston, fit, K = 10)$delta[1]
+}
+plot(1:10, err, xlab = "Polynomial Degree", ylab = "MSE", type = "l", lwd = 2)
+points(which.min(err), err[which.min(err)], col='red',pch=20,cex=2)
+```
+
+MSE is the smallest for the polynomial with degree 3.
+
+(d) 
+
+```{r}
+summary(Boston$dis)
+
+fit7.9d <- lm(nox ~ bs(dis, df = 4), data = Boston)
+summary(fit7.9d)
+
+attr(bs(Boston$dis, df = 4), "knots")
+
+x <- seq(min(Boston$dis), max(Boston$dis))
+y <- predict(fit7.9d, data.frame(dis = x))
+plot(Boston$dis, Boston$nox, col = "blue")
+lines(x, y, lwd = 2)
+
+```
+Since we chose the degrees of freedom, R chose the knot at 3.207. This corresponds to the 50th percentile of the weighted mean of distances. 
+
+(e) 
+
+```{r}
+
+rss_df <- c()
+for (i in 3:16) {
+  fit <- lm(nox ~ bs(dis, df = i), data = Boston)
+  pred <- predict(fit, data.frame(dis = x))
+  rss_df[i] <- sum(fit$residuals^2)
+}
+
+plot(1:16, rss_df, xlab = "Degrees of Freedom", ylab = "RSS", type = "l", lwd = 2)
+points(which.min(rss_df), rss_df[which.min(rss_df)], col='orange',pch=20,cex=2)
+```
+The smallest RSS is for 14 degrees of freedom
+
+
+(f)
+
+```{r, warning=FALSE, message=FALSE}
+set.seed(9)
+cv <- rep(NA, 16)
+for (i in 3:16) {
+  fit <- glm(nox ~ bs(dis, df = i), data = Boston)
+  cv[i] <- cv.glm(Boston, fit, K = 10)$delta[1]
+}
+
+plot(3:16, cv[3:16], xlab = "Degrees of Freedom", ylab = "Test MSE", type = "l")
+points(which.min(cv), cv[which.min(cv)], col = "red", pch = 20, cex = 2)
+```
+
+CV shows the smallest test MSE for 10 degrees of freedom.
+
+
+10. This question relates to the College data set.
+(a) Split the data into a training set and a test set. Using out-of-state tuition as the response and the other variables as the predictors, perform forward stepwise selection on the training set in order to identify a satisfactory model that uses just a subset of the predictors.
+
+```{r}
+data("College")
+
+set.seed(1)
+train_id <- sample(1:nrow(College), 500)
+train <- College[train_id,] 
+test <- College[-train_id,]
+
+fit_fwd <- regsubsets(Outstate ~ ., train, nvmax = ncol(College)-1, method = "forward")
+fwd_summary <- summary(fit_fwd)
+
+par(mfrow = c(1, 3))
+
+plot(fwd_summary$cp, xlab = "Number of variables", ylab = "Cp", type = "l")
+min.cp <- min(fwd_summary$cp)
+std.cp <- sd(fwd_summary$cp)
+abline(h = min.cp + 0.2 * std.cp, col = "red", lty = 2)
+abline(h = min.cp - 0.2 * std.cp, col = "red", lty = 2)
+
+plot(fwd_summary$bic, xlab = "Number of variables", ylab = "BIC", type='l')
+min.bic <- min(fwd_summary$bic)
+std.bic <- sd(fwd_summary$bic)
+abline(h = min.bic + 0.2 * std.bic, col = "red", lty = 2)
+abline(h = min.bic - 0.2 * std.bic, col = "red", lty = 2)
+
+plot(fwd_summary$adjr2, xlab = "Number of variables", ylab = "Adjusted R2", type = "l", ylim = c(0.4, 0.84))
+max.adjr2 <- max(fwd_summary$adjr2)
+std.adjr2 <- sd(fwd_summary$adjr2)
+abline(h = max.adjr2 + 0.2 * std.adjr2, col = "red", lty = 2)
+abline(h = max.adjr2 - 0.2 * std.adjr2, col = "red", lty = 2)
+
+```
+The model metrics do not seem to improve much after 6 predictors.
+
+(b) 
+
+```{r, message=FALSE}
+
+fit.gam <- gam(Outstate ~ Private + s(Room.Board,2) + s(PhD,2) + s(perc.alumni,2) + s(Expend,5) + s(Grad.Rate,2), data = train)
+par(mfrow = c(2,3))
+plot(fit.gam, se = TRUE, col = "blue")
+```
+
+(c)
+
+
+
+```{r}
+
+preds <- predict(fit.gam, test)
+err <- mean((test$Outstate - preds)^2)
+
+tss <- mean((test$Outstate - mean(test$Outstate))^2)
+rss <- 1 - err / tss
+rss
+```
+The R squared for the GAM model with 6 predictors is 0.7623 or 76.23% of the variation in the model is explained by the predictors chosen. This seems to be quite a good model.
+
+(d) For which variables, if any, is there evidence of a non-linear relationship with the response?
+
+```{r}
+summary(fit.gam)
+```
+Expend has a strong non-linear relationship with the response variable.
+
+11. 
+
+(a) 
+
+```{r}
+set.seed(1)
+y <- rnorm(100)
+x1 <- rnorm(100)
+x2 <- rnorm(100)
+```
+
+
+(b) 
+
+```{r}
+b_h1 <- 1
+```
+
+(c)
+
+```{r}
+
+a <- y - b_h1*x1
+b_h2 <- lm(a~x2)$coef[2]
+
+```
+
+(d) 
+
+```{r}
+a <- y- b_h2*x2
+b_h1 <- lm(a~x1)$coef[2]
+```
+
+
+(e) 
+
+```{r}
+iter <- 10
+df <- data.frame(0.0, 0.27, 0.0)
+names(df) <- c('beta0', 'beta1', 'beta2')
+for (i in 1:iter) {
+  beta1 <- df[nrow(df), 2]
+  a <- y - beta1 * x1
+  beta2 <- lm(a ~ x2)$coef[2]
+  a <- y - beta2 * x2
+  beta1 <- lm(a ~ x1)$coef[2]
+  beta0 <- lm(a ~ x1)$coef[1]
+  print(beta0)
+  print(beta1)
+  print(beta2)
+  df[nrow(df) + 1,] <- list(beta0, beta1, beta2)
+}
+
+```
+
+```{r}
+plot(df$beta0, col = 'red', type = 'l')
+lines(df$beta1, col = 'blue')
+lines(df$beta2, col = 'green')
+```
+
+
+$~$
+
+(f) 
+
+```{r}
+plot(df$beta0, col = 'red', type = 'l')
+lines(df$beta1, col = 'blue')
+lines(df$beta2, col = 'green')
+res <- coef(lm(y ~ x1 + x2))
+abline(h = res[1], col = 'darkred', lty = 2)
+abline(h = res[2], col = 'darkblue', lty = 2)
+abline(h = res[3], col = 'darkgreen', lty = 2)
+
+```
+
+
