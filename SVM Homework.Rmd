@@ -1,0 +1,412 @@
+---
+title: "SVM Homework"
+author: "Pruthvi Bharadwaj"
+date: "March 10, 2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+library(ISLR)
+```
+
+9.3
+(a)
+
+```{r}
+x1 <- c(3, 2, 4, 1, 2, 4, 4)
+x2 <- c(4, 2, 4, 4, 1, 3, 1)
+cols <- c("red", "red", "red", "red", "blue", "blue", "blue")
+plot(x1, x2, col = cols, xlim = c(0,5), ylim = c(0,5))
+```
+
+(b)
+
+
+```{r}
+#Optimal separating hyperplane
+plot(x1, x2, col = cols, xlim = c(0,5), ylim = c(0,5))
+abline(-0.5, 1)
+```
+
+(c)
+
+The classification rule here would be: 
+
+__**Classify as Red if**__ $x2 - x1 +0.5 > 0$ , __**and, classify as Blue if**__ $x2 - x1 +0.5 < 0$
+
+(d)
+
+```{r}
+#Margin for maximal margin hyperplane
+plot(x1, x2, col = cols, xlim = c(0,5), ylim = c(0,5))
+abline(-0.5, 1)
+abline(-1, 1, lty = 2)
+abline(0, 1, lty = 2)
+```
+
+(e)
+
+The support vectors for the maximal margin classifier are the points (2,1), (2,2), (4,3) and (4,4)
+
+(f)
+
+Since the 7th observation is not a support vector, a slight change in its position will not affect the maximal margin hyperplane.
+
+(g)
+
+__**The equation**__ $x2 = -0.25 + x1$ __**will also separate all the observations but is not an optimal hyperplane because the margin is smaller than the optimal option.**__
+
+```{r}
+plot(x1, x2, col = cols, xlim = c(0,5), ylim = c(0,5))
+abline(-0.25, 1)
+abline(0, 1, lty = 2)
+abline(-0.5, 1, lty = 2)
+```
+
+(h)
+
+```{r}
+plot(x1, x2, col = cols, xlim = c(0,5), ylim = c(0,5))
+abline(-0.5, 1)
+abline(-1, 1, lty = 2)
+abline(0, 1, lty = 2)
+points(5,1, col = "red")
+```
+
+
+9.5
+(a)
+
+```{r}
+set.seed(9)
+x1 <- runif(500) - 0.5
+x2 <- runif(500) - 0.5
+y <- 1*(x1^2 - x2^2 > 0)
+```
+
+(b)
+
+```{r}
+plot(x1, x2, col = ifelse(y, "red", "blue"))
+```
+
+(c)
+
+```{r}
+#Logistic regression
+df <- data.frame(x1, x2, y)
+fit_glm <- glm(y ~ x1 + x2, data = df, family = binomial)
+fit_glm
+```
+
+(d)
+
+```{r}
+pred_fit <- predict(fit_glm, data.frame(x1,x2))
+plot(x1, x2, col = ifelse(pred_fit > 0, "red", "blue"), pch = ifelse(as.integer(pred_fit > 0) == y, 1,4))
+```
+In the above plot, the circles are the observations that have been classified correctly and the the crosses are the ones that are misclassified. The decision boundary looks linear.
+
+(e)
+
+```{r}
+fit_glm1 <- glm(y ~ poly(x1, 2) + poly(x2, 2), data = df, family = binomial)
+summary(fit_glm1)
+
+fit_glm2 <- glm(y ~ x1 + x2 + x1*x2, data = df, family = binomial)
+summary(fit_glm2)
+
+fit_glm3 <- glm(y ~ x1 + x2 + log(x1) + log(x2), data = df, family = binomial)
+summary(fit_glm3)
+
+```
+
+
+
+(f)
+
+```{r}
+pred_fit1 <- predict(fit_glm1, df)
+plot(x1, x2, col = ifelse(pred_fit1 > 0, "red", "blue"), pch = ifelse(as.integer(pred_fit1 > 0) == y, 1,4))
+```
+
+(g)
+
+```{r}
+#Support Vector Classifier
+df$y <- as.factor(df$y)
+fit_svc <- svm(y ~ x1 + x2, data = df, kernel = "linear")
+pred_svc <- predict(fit_svc, df, type = "response")
+plot(x1, x2, col = ifelse(pred_svc != 0, "red", "blue"), pch = ifelse(pred_svc == y, 1,4))
+```
+In the above plot, the circles represent observations that have been classified correctly and crosses represent the observations that have been misclassified.
+
+(h)
+
+```{r}
+#SVM with non-linear kernel
+
+fit_svm <- svm(y ~ x1 + x2, data = df, kernel = "polynomial", degree = 2)
+pred_svm <- predict(fit_svm, df, type = "response")
+plot(x1, x2, col = ifelse(pred_svm != 0, "red", "blue"), pch = ifelse(pred_svm == y, 1,4))
+```
+
+
+
+(i)
+SVM with a polynomial kernel performs better. But logistic regression with non-linear predictors performs the best
+
+9.7
+(a)
+
+```{r}
+data("Auto")
+Auto$Y <- ifelse(Auto$mpg > median(Auto$mpg), 1, 0)
+Auto$Y <- as.factor(Auto$Y)
+```
+
+(b)
+
+```{r}
+set.seed(9)
+cost <- data.frame(cost = seq(0.01, 100, length.out = 10))
+svm_tune <- tune(svm, Y ~ ., data = Auto, kernel = "linear", ranges = cost)
+summary(svm_tune)
+plot(svm_tune$performances[,c(1,2)], type = "l")
+```
+
+cost=11.12 has the best performance.
+
+(c)
+
+```{r}
+#Polynomial Kernel
+para <- data.frame(cost = seq(0.01, 100, length.out = 5), degree = seq(1, 100, length.out = 5))
+
+svm_poly <- tune(svm, Y ~ ., data = Auto, kernel = "polynomial", ranges = para)
+summary(svm_poly)
+```
+
+Cost of 100 with degree 1 seems to perform the best
+
+
+```{r}
+#Radial Kernel
+
+params <- data.frame(cost=seq(0.01,100,length.out = 5),gamma=seq(0.1,100,length.out = 5))
+svm_radial <- tune(svm, Y ~ ., data = Auto, kernel = "radial", ranges = params)
+summary(svm_radial) 
+```
+Cost of 25 with gamma 0.1 seems to perform the best
+
+(d)
+
+```{r, fig.height=3, fig.width=4, fig.show='hold'}
+linear <- svm(Y ~ ., data = Auto, kernel = "linear", cost = 11.12)
+polynomial <- svm(Y ~ ., data = Auto, kernel = "polynomial", cost = 100, degree = 1)
+radial <- svm(Y ~ ., data = Auto, kernel = "radial", cost = 25.0075, gamma = 0.1)
+
+
+pair_plot <- function(a){
+  for (name in names(Auto)[!(names(Auto) %in% c("mpg", "Y", "name"))])
+    plot(a, Auto, as.formula(paste("mpg~", name, sep = "")))
+}
+
+pair_plot(linear)
+```
+The above are the SVM classification plots for linear kernel.
+
+```{r, fig.height=3, fig.width=4, fig.show='hold'}
+pair_plot(polynomial)
+```
+
+The above plots are the SVM classification plots for polynomial kernel
+
+```{r, fig.height=3, fig.width=4, fig.show='hold'}
+pair_plot(radial)
+```
+The above plots are the SVM classification plots for radial kernel
+
+9.8
+(a)
+
+```{r}
+data("OJ")
+set.seed(9)
+train_oj <- sample(nrow(OJ), 800)
+oj_train <- OJ[train_oj,]
+oj_test <- OJ[-train_oj,]
+```
+
+(b)
+
+```{r}
+oj_svc <- svm(Purchase ~ ., data = oj_train, kernel = "linear", cost = 0.01)
+summary(oj_svc)
+```
+The SVC creates 432 support vectors out of the 800 training observations. Out of the 432 support vectors, 214 belong to level CH and 213 to level MM.
+
+(c)
+
+```{r}
+#Training error rate
+
+pred_train <- predict(oj_svc, oj_train)
+table(pred_train, oj_train$Purchase)
+#Test error rate
+
+pred_test <- predict(oj_svc, oj_test)
+table(pred_test, oj_test$Purchase)
+
+(tr_error<- (50+77)/(455+77+50+218))
+(te_error <- (39+17)/(131+39+17+83))
+```
+
+The training error rate is 15.87% and the test error rate is 20.74%
+
+(d)
+
+```{r}
+#For optimal cost
+
+oj_tune <- tune(svm, Purchase ~ ., data = oj_train, kernel = "linear", ranges =
+                  data.frame(cost = seq(0.01, 10, length.out = 25)))
+summary(oj_tune)
+```
+The optimal cost is 3.75625
+
+(e)
+
+```{r}
+#Training error rate
+oj_svm <- svm(Purchase ~ ., data = oj_train, kernel = "linear", cost = oj_tune$best.parameters$cost)
+svm_train <- predict(oj_svm, oj_train)
+table(svm_train, oj_train$Purchase)
+
+(tr_err <- (49+75)/(456+75+49+220))
+
+#Test error rate
+svm_test <- predict(oj_svm, oj_test)
+table(svm_test, oj_test$Purchase)
+
+(te_err <- (17+35)/(131+35+17+87))
+```
+
+The training error rate is 15.25% and the test error rate is 18.15%.
+
+(f)
+Radial Kernel
+```{r}
+oj_radial <- svm(Purchase ~ ., data = oj_train, kernel = "radial")
+summary(oj_radial)
+```
+
+The SVM with radial kernel creates 624 support vectors out of the 800 training observations. Out of the 624 support vectors, 313 belong to level CH and 311 to level MM.
+
+```{r}
+#Training error rate
+
+radial_train <- predict(oj_radial, oj_train)
+table(radial_train, oj_train$Purchase)
+(tr_err <- (39+73)/(466+73+39+222))
+
+
+#Test error rate
+
+radial_test <- predict(oj_radial, oj_test)
+table(radial_test, oj_test$Purchase)
+(te_err <- (37+16)/(132+37+16+85))
+
+
+
+```
+The training error rate is 14% and the test error rate is 19.63%.
+
+```{r}
+#For optimal cost
+
+radial_tune <- tune(svm, Purchase ~ ., data = oj_train, kernel = "radial", ranges =
+                  data.frame(cost = seq(0.01, 10, length.out = 25)))
+summary(radial_tune)
+```
+
+The optimal cost ranges from 0.8425 to 1.675
+
+```{r}
+#Training error rate
+radial_svm <- svm(Purchase ~ ., data = oj_train, kernel = "radial", cost = radial_tune$best.parameters$cost)
+svm_rad <- predict(radial_svm, oj_train)
+table(svm_rad, oj_train$Purchase)
+(tr_err <- (36+73)/(469+73+36+222))
+
+
+
+#Test error rate
+svm_rad_test <- predict(radial_svm, oj_test)
+table(svm_rad_test, oj_test$Purchase)
+(te_err <- (36+16)/(132+36+16+86))
+
+```
+
+The training error rate is 13.625% and the test error rate is 19.26%
+
+(g)
+Polynomial Kernel
+```{r}
+oj_poly <- svm(Purchase ~ ., data = oj_train, kernel = "polynomial", degree = 2)
+summary(oj_poly)
+```
+The SVM with polynomial kernel creates 441 support vectors out of the 800 training observations. Out of the 441 support vectors, 224 belong to level CH and 217 to level MM.
+
+```{r}
+#Training error rate
+
+poly_train <- predict(oj_poly, oj_train)
+table(poly_train, oj_train$Purchase)
+
+#Test error rate
+
+poly_test <- predict(oj_poly, oj_test)
+table(poly_test, oj_test$Purchase)
+
+(poly_error<- (105+37)/(468+105+37+190))
+(ploye_error <- (45+12)/(136+45+12+77))
+```
+The training error rate is 17.75% amd the test error rate is 21.11%
+
+```{r}
+#For optimal cost
+
+poly_tune <- tune(svm, Purchase ~ ., data = oj_train, kernel = "polynomial", degree = 2, ranges =
+                  data.frame(cost = seq(0.01, 10, length.out = 25)))
+summary(poly_tune)
+
+
+```
+
+The optimal cost here is between 8.335 to 9.1675
+
+```{r}
+#Training error rate
+poly_oj <- svm(Purchase ~ ., data = oj_train, kernel = "polynomial", cost = poly_tune$best.parameters$cost)
+train_poly <- predict(poly_oj, oj_train)
+table(train_poly, oj_train$Purchase)
+
+(tr_err_poly <- (80+34)/(471+80+34+215))
+
+#Test error rate
+test_poly <- predict(poly_oj, oj_test)
+table(test_poly, oj_test$Purchase)
+
+(te_err_poly <- (16+39)/(132+39+16+83))
+```
+
+The training error rate is 14.25% and the test error rate is 20.37%
+
+(h)
+
+SVM with linear kernel and with cost 3.75625 gives the best results in terms of the test error rate which is 18.15%
+
+
