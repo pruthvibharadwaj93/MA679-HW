@@ -1,0 +1,217 @@
+---
+title: "Tree HW"
+author: "Pruthvi Bharadwaj"
+date: "March 12, 2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(randomForest)
+library(ISLR)
+library(tree)
+library(gbm)
+library(knitr)
+```
+
+8.1
+
+
+![my answer](/Users/pruthvibharadwaj/Desktop/Tree.jpeg)
+
+
+8.3
+
+```{r}
+p <- seq(0,1,0.01)
+
+#For two classes
+gini <- 2*p*(1-p)
+error <- 1 - pmax(p, 1-p)
+entropy <- -(p*log(p) + (1-p)*log(1-p))
+
+plot(NA, xlim = c(0,1), ylim = c(0,1), xlab = "p", ylab = "f")
+lines(p, gini, type = "l", col = "red", lwd = 1.5)
+lines(p, error, type = "l", col = "black", lwd = 1.5)
+lines(p, entropy, type = "l", col = "orange", lwd = 1.5)
+
+legend(x = "topright", legend = c("Gini Index", "Class Error", "Cross Entropy"),
+       col = c("red", "black", "orange"), lty = 1)
+
+```
+
+8.5
+P(Class is Red | X) is greater than 0.5 in 6 of the 10 times. Therefore, according to majority vote, final classification is Red. 
+
+The average probability for the 10 estimates is 0.45, i.e., P(Class is Red | X) < 0.5, implying that the final classification is Green. 
+
+
+8.7
+
+```{r}
+
+data("Boston")
+
+set.seed(9)
+train <- sample(1:nrow(Boston), nrow(Boston)/2)
+
+Boston_train <- Boston[train, -14]
+Boston_test <- Boston[-train, -14]
+y_train <- Boston[train, 14]
+y_test <- Boston[-train, 14]
+
+rf1 <- randomForest(Boston_train, y = y_train, xtest = Boston_test, ytest = y_test, mtry = ncol(Boston) - 1, ntree = 500)
+rf2 <- randomForest(Boston_train, y = y_train, xtest = Boston_test, ytest = y_test, mtry = (ncol(Boston) - 1)/2, ntree = 500)
+rf3 <- randomForest(Boston_train, y = y_train, xtest = Boston_test, ytest = y_test, mtry = sqrt(ncol(Boston) - 1), ntree = 500)
+
+plot(1:500, rf1$test$mse, type = "l", col = "green", xlab = "Number of Trees", ylab = "Test MSE")
+lines(1:500, rf2$test$mse, type = "l", col = "blue")
+lines(1:500, rf3$test$mse, type = "l", col = "red")
+legend(x = "topright", c("m = p", "m = p/2", "m = sqrt(p)"), col = c("green", "blue", "red"), lty = 1)
+
+```
+
+
+
+8.8
+(a)
+```{r}
+data("Carseats")
+set.seed(9)
+subs <- sample(1:nrow(Carseats), nrow(Carseats)*0.7)
+car_train <- Carseats[subs, ]
+car_test <- Carseats[-subs, ]
+
+```
+
+(b)
+
+```{r}
+#Regression Tree
+
+rtree <- tree(Sales ~ ., data = car_train)
+summary(rtree)
+
+plot(rtree)
+text(rtree, cex = 0.65)
+
+#MSE
+pred_rtree <- predict(rtree, car_test)
+mse_rtree <- mean((car_test$Sales - pred_rtree)^2)
+print(paste0("The test MSE for the regression tree is: ", mse_rtree))
+```
+
+(c)
+
+```{r}
+#Cross-Validation for tree complexity
+
+cv_rtree <- cv.tree(rtree)
+plot(cv_rtree$size, cv_rtree$dev, xlab = "Size of Tree", ylab = "Deviance", type = "b")
+
+#Tree Pruning
+
+prune_rtree <- prune.tree(rtree, best = 6)
+plot(prune_rtree)
+text(prune_rtree)
+
+#Test MSE for pruned tree
+
+prune_pred <- predict(prune_rtree, car_test)
+prune_mse <- mean((prune_pred - car_test$Sales)^2)
+print(paste0("The test MSE for the pruned tree is: ", prune_mse))
+```
+
+The pruned tree gives a slightly lower MSE than the unpruned tree.
+
+(d)
+
+```{r}
+#Bagging 
+
+car_bag <- randomForest(Sales ~ ., data = car_train, mtry = 10, importance = TRUE, ntree = 500)
+pred_bag <- predict(car_bag, car_test)
+bag_mse <- mean((pred_bag - car_test$Sales)^2)
+
+print(paste0("The test MSE for bagging method is: ", bag_mse))
+
+```
+
+Bagging reduces the test MSE to 2.062
+
+```{r}
+#Importance
+importance(car_bag)
+```
+
+Price and ShelveLoc seem to be the two most important variables
+
+(e)
+
+```{r}
+
+#Random Forest
+rf_mse <- c()
+for (i in 1:10) {
+  car_rf <- randomForest(Sales ~ ., data = car_train, mtry = i, importance = TRUE, ntree = 500)
+  pred_rf <- predict(car_rf, car_test)
+  rf_mse[i] <- mean((pred_rf - car_test$Sales)^2)
+}
+#Best model
+which.min(rf_mse)
+#Minimum MSE
+rf_mse[which.min(rf_mse)]
+
+```
+The best model uses 9 variables at each split. 
+
+```{r}
+importance(car_rf)
+```
+
+ShelveLoc seems to be the most important variable, followed by Price.
+
+
+8.11
+(a)
+
+```{r}
+data("Caravan")
+Caravan$Purchase <- ifelse(Caravan$Purchase == "No", 0, 1)
+crv_train <- Caravan[1:1000, ]
+crv_test <- Caravan[1001:5822, ]
+```
+
+(b)
+```{r}
+#Boosting
+
+set.seed(9)
+boost <- gbm(Purchase ~ ., data = crv_train, shrinkage = 0.01, n.trees = 1000, distribution = "bernoulli")
+kable(summary(boost), row.names = F)
+```
+
+PPERSAUT, MKOOPKLA and MOPLHOOG are the three most important variables.
+
+(c)
+
+```{r}
+pred_boost <- predict(boost, crv_test, n.trees = 1000, type = "response")
+boost_pred <- ifelse(pred_boost > 0.2, 1, 0)
+table(crv_test$Purchase, boost_pred)
+```
+
+The fraction of people who were predicted to make a purchase and who actually made a purchase is 36/(36 + 118), which is 0.2337 or 23.37%
+
+```{r}
+#Logistic Regression
+
+crv_glm <- glm(Purchase ~ ., data = crv_train, family = binomial)
+
+pred_glm <- predict(crv_glm, crv_test, type = "response")
+glm_pred <- ifelse(pred_glm > 0.2, 1, 0)
+table(crv_test$Purchase, glm_pred)
+```
+
+From Logistic Regression, the fraction of people predicted to make a purchase and who actually made a purchase is 58/(58 + 350), which is 0.1421 or 14.21%. Logistic regression performs worse than Boosting in this scenario.
